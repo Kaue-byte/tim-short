@@ -107,10 +107,7 @@
   </div>
 
   <script>
-    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-const host = window.location.hostname;
-const port = window.location.port ? `:${window.location.port}` : '';
-const socket = new WebSocket(`${protocol}${host}${port}`);
+    const socket = new WebSocket("wss://websocket-server-bta6.onrender.com");
 
     let jogadores = [];
 
