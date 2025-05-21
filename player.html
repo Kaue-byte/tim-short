@@ -36,120 +36,126 @@
 <body>
   <div id="gameArea"></div>
 
-  <script>
-    const gameArea = document.getElementById("gameArea");
-    const socket = new WebSocket("wss://websocket-server-bta6.onrender.com");
-    
+<script>
+  const gameArea = document.getElementById("gameArea");
+  const socket = new WebSocket("wss://websocket-server-bta6.onrender.com");
 
-    const avatars = new Map(); // id -> { element, x, y, targetX, targetY }
+  const avatars = new Map(); // id -> { element, x, y, targetX, targetY }
 
-    // Cria um novo avatar
-    function createAvatar(id, color = "#007bff") {
-      const el = document.createElement("div");
-      el.className = "avatar";
-      el.style.backgroundColor = color;
+  // Gera um ID aleatório para o jogador local
+  const myId = Math.floor(Math.random() * 1000000);
 
-      gameArea.appendChild(el);
+  function createAvatar(id, color = "#007bff") {
+    if (avatars.has(id)) return;
 
-      avatars.set(id, {
-        element: el,
-        x: 100,
-        y: 100,
-        targetX: 100,
-        targetY: 100,
-      });
+    const el = document.createElement("div");
+    el.className = "avatar";
+    el.style.backgroundColor = color;
 
-      updateAvatarPosition(id);
-    }
+    gameArea.appendChild(el);
 
-    // Atualiza visualmente a posição do avatar
-    function updateAvatarPosition(id) {
-      const a = avatars.get(id);
-      if (!a) return;
-
-      a.element.style.left = `${a.x}px`;
-      a.element.style.top = `${a.y}px`;
-    }
-
-    // Anima todos os avatares
-    function animate() {
-      let needsNextFrame = false;
-
-      avatars.forEach((a, id) => {
-        const dx = a.targetX - a.x;
-        const dy = a.targetY - a.y;
-        const dist = Math.hypot(dx, dy);
-        const speed = 5;
-
-        if (dist > 1) {
-          a.x += (dx / dist) * speed;
-          a.y += (dy / dist) * speed;
-          updateAvatarPosition(id);
-          sendPosition(id, a.x, a.y);
-          needsNextFrame = true;
-        }
-      });
-
-      if (needsNextFrame) {
-        requestAnimationFrame(animate);
-      }
-    }
-
-    // Envia posição via WebSocket
-    function sendPosition(id, x, y) {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "position", id, x, y }));
-      }
-    }
-
-    // Clique define nova posição do avatar com ID 1
-    gameArea.addEventListener("click", (e) => {
-      const rect = gameArea.getBoundingClientRect();
-  const x = (e.clientX - rect.left - 20) * 5.7;
-    const y = (e.clientY - rect.top - 20) * 1.1;
-
-      const myAvatar = avatars.get(1);
-      if (myAvatar) {
-        myAvatar.targetX = x;
-        myAvatar.targetY = y;
-        requestAnimationFrame(animate);
-      }
+    avatars.set(id, {
+      element: el,
+      x: 100,
+      y: 100,
+      targetX: 100,
+      targetY: 100,
     });
 
-    // Conectando e criando múltiplos avatares
-    socket.addEventListener("open", () => {
-
-        createAvatar(1);
-      
-    });
-
-    // Recebe atualização de posição de outros jogadores (opcional)
-socket.addEventListener("message", async (event) => {
-  let rawData = event.data;
-
-  if (rawData instanceof Blob) {
-    rawData = await rawData.text(); // Converte Blob em texto
+    updateAvatarPosition(id);
   }
 
-  try {
-    const data = JSON.parse(rawData);
-    if (data.type === "position" && avatars.has(data.id) && data.id !== 1) {
-      const a = avatars.get(data.id);
-      a.targetX = data.x;
-      a.targetY = data.y;
+  function updateAvatarPosition(id) {
+    const a = avatars.get(id);
+    if (!a) return;
+
+    a.element.style.left = `${a.x}px`;
+    a.element.style.top = `${a.y}px`;
+  }
+
+  function animate() {
+    let needsNextFrame = false;
+
+    avatars.forEach((a, id) => {
+      const dx = a.targetX - a.x;
+      const dy = a.targetY - a.y;
+      const dist = Math.hypot(dx, dy);
+      const speed = 5;
+
+      if (dist > 1) {
+        a.x += (dx / dist) * speed;
+        a.y += (dy / dist) * speed;
+        updateAvatarPosition(id);
+
+        if (id === myId) {
+          sendPosition(id, a.x, a.y);
+        }
+
+        needsNextFrame = true;
+      }
+    });
+
+    if (needsNextFrame) {
       requestAnimationFrame(animate);
     }
-  } catch (e) {
-    console.error("Erro ao processar mensagem:", rawData, e);
   }
-});
 
-
-    window.addEventListener("beforeunload", () => {
-  if (socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type: "disconnect", id: 1 })); // ID do jogador
+  function sendPosition(id, x, y) {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "position", id, x, y }));
+    }
   }
-});
-  </script>
+
+  gameArea.addEventListener("click", (e) => {
+    const rect = gameArea.getBoundingClientRect();
+    const x = (e.clientX - rect.left - 20) * 5.7;
+    const y = (e.clientY - rect.top - 20) * 1.1;
+
+    const myAvatar = avatars.get(myId);
+    if (myAvatar) {
+      myAvatar.targetX = x;
+      myAvatar.targetY = y;
+      requestAnimationFrame(animate);
+    }
+  });
+
+  socket.addEventListener("open", () => {
+    createAvatar(myId, "#007bff"); // Azul para o jogador local
+  });
+
+  socket.addEventListener("message", async (event) => {
+    let rawData = event.data;
+
+    if (rawData instanceof Blob) {
+      rawData = await rawData.text();
+    }
+
+    try {
+      const data = JSON.parse(rawData);
+
+      if (data.type === "position") {
+        if (!avatars.has(data.id)) {
+          createAvatar(data.id, "#28a745"); // Verde para outros jogadores
+        }
+
+        const a = avatars.get(data.id);
+        if (data.id !== myId) {
+          a.targetX = data.x;
+          a.targetY = data.y;
+          requestAnimationFrame(animate);
+        }
+      }
+    } catch (e) {
+      console.error("Erro ao processar mensagem:", rawData, e);
+    }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: "disconnect", id: myId }));
+    }
+  });
+</script>
+
 </body>
 </html>
