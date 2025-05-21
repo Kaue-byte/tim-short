@@ -108,20 +108,7 @@
 
   <script>
     const socket = new WebSocket("wss://websocket-server-bta6.onrender.com");
-ws.on('message', function incoming(message) {
-  try {
-    const json = JSON.parse(message);
-    // Se for JSON, retransmite
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(json));
-      }
-    });
-  } catch (err) {
-    // Se não for JSON, ignore ou trate como texto
-    console.log("Mensagem não é JSON:", message.toString());
-  }
-});
+
     let jogadores = [];
 
     const perguntas = [

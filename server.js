@@ -32,10 +32,17 @@ const wss = new WebSocket.Server({ server });
 wss.on('connection', function connection(ws) {
   console.log('Cliente conectado');
 
-  ws.on('message', function incoming(message) {
-    console.log('Mensagem recebida:', message);
-    ws.send(`Eco: ${message}`);
+ws.on('message', function incoming(message) {
+  console.log('Mensagem recebida:', message);
+
+  // Reenvia para todos os outros clientes conectados
+  wss.clients.forEach(function each(client) {
+    if (client !== ws && client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
   });
+});
+
 
   ws.on('close', () => {
     console.log('Cliente desconectado');
