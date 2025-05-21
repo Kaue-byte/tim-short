@@ -6,13 +6,13 @@
   <title>Player - Controle</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
   <style>
-    html, body {
-      height: 100%;
-      width: 100%;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
+  html, body {
+ height: 100%;
+  width: 100%;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
 
     #gameArea {
       width: 100vw;
@@ -39,6 +39,7 @@
   <script>
     const gameArea = document.getElementById("gameArea");
     const socket = new WebSocket("wss://websocket-server-bta6.onrender.com");
+    
 
     const avatars = new Map(); // id -> { element, x, y, targetX, targetY }
 
@@ -97,11 +98,7 @@
     // Envia posição via WebSocket
     function sendPosition(id, x, y) {
       if (socket.readyState === WebSocket.OPEN) {
-        // Normaliza as coordenadas para [0, 1]
-        const normX = x / gameArea.clientWidth;
-        const normY = y / gameArea.clientHeight;
-
-        socket.send(JSON.stringify({ type: "position", id, x: normX, y: normY }));
+        socket.send(JSON.stringify({ type: "position", id, x, y }));
       }
     }
 
@@ -121,42 +118,38 @@
 
     // Conectando e criando múltiplos avatares
     socket.addEventListener("open", () => {
-      createAvatar(1); // Cria o avatar do jogador 1
+
+        createAvatar(1);
+      
     });
 
-    // Recebe atualização de posição de outros jogadores
-    socket.addEventListener("message", async (event) => {
-      let rawData = event.data;
+    // Recebe atualização de posição de outros jogadores (opcional)
+socket.addEventListener("message", async (event) => {
+  let rawData = event.data;
 
-      if (rawData instanceof Blob) {
-        rawData = await rawData.text(); // Converte Blob em texto
-      }
+  if (rawData instanceof Blob) {
+    rawData = await rawData.text(); // Converte Blob em texto
+  }
 
-      try {
-        const data = JSON.parse(rawData);
-        if (data.type === "position" && data.id !== 1) {
-          // Verifica se o avatar existe, senão cria um
-          if (!avatars.has(data.id)) {
-            createAvatar(data.id, "#28a745"); // Cor alternativa para outros jogadores
-          }
+  try {
+    const data = JSON.parse(rawData);
+    if (data.type === "position" && avatars.has(data.id) && data.id !== 1) {
+      const a = avatars.get(data.id);
+      a.targetX = data.x * 5.7;
+      a.targetY = data.y * 1.1;
+      requestAnimationFrame(animate);
+    }
+  } catch (e) {
+    console.error("Erro ao processar mensagem:", rawData, e);
+  }
+});
 
-          const a = avatars.get(data.id);
-          // Desnormaliza as coordenadas para pixels
-          a.targetX = data.x * gameArea.clientWidth;
-          a.targetY = data.y * gameArea.clientHeight;
-          requestAnimationFrame(animate);
-        }
-      } catch (e) {
-        console.error("Erro ao processar mensagem:", rawData, e);
-      }
-    });
 
-    // Envia uma mensagem quando o usuário sai
     window.addEventListener("beforeunload", () => {
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "disconnect", id: 1 })); // ID do jogador
-      }
-    });
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: "disconnect", id: 1 })); // ID do jogador
+  }
+});
   </script>
 </body>
 </html>
