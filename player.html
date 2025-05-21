@@ -6,13 +6,13 @@
   <title>Player - Controle</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
   <style>
-  html, body {
- height: 100%;
-  width: 100%;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-}
+    html, body {
+      height: 100%;
+      width: 100%;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
 
     #gameArea {
       width: 100vw;
@@ -39,7 +39,6 @@
   <script>
     const gameArea = document.getElementById("gameArea");
     const socket = new WebSocket("wss://websocket-server-bta6.onrender.com");
-    
 
     const avatars = new Map(); // id -> { element, x, y, targetX, targetY }
 
@@ -85,7 +84,9 @@
           a.x += (dx / dist) * speed;
           a.y += (dy / dist) * speed;
           updateAvatarPosition(id);
-          sendPosition(id, a.x, a.y);
+          if (id === 1) {
+            sendPosition(id, a.x, a.y); // Só envia a posição do jogador local
+          }
           needsNextFrame = true;
         }
       });
@@ -95,18 +96,23 @@
       }
     }
 
-    // Envia posição via WebSocket
+    // Envia posição via WebSocket (com multiplicadores)
     function sendPosition(id, x, y) {
       if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ type: "position", id, x, y }));
+        socket.send(JSON.stringify({
+          type: "position",
+          id,
+          x: x * 5.7,
+          y: y * 1.1
+        }));
       }
     }
 
-    // Clique define nova posição do avatar com ID 1
+    // Clique define nova posição do avatar com ID 1 (sem multiplicar)
     gameArea.addEventListener("click", (e) => {
       const rect = gameArea.getBoundingClientRect();
-    const x = (e.clientX - rect.left - 20) * 5.7;
-    const y = (e.clientY - rect.top - 20) * 1.1;
+      const x = e.clientX - rect.left - 20;
+      const y = e.clientY - rect.top - 20;
 
       const myAvatar = avatars.get(1);
       if (myAvatar) {
@@ -118,38 +124,40 @@
 
     // Conectando e criando múltiplos avatares
     socket.addEventListener("open", () => {
-
-        createAvatar(1);
-      
+      createAvatar(1);
     });
 
-    // Recebe atualização de posição de outros jogadores (opcional)
-socket.addEventListener("message", async (event) => {
-  let rawData = event.data;
+    // Recebe atualização de posição de outros jogadores (desmultiplica)
+    socket.addEventListener("message", async (event) => {
+      let rawData = event.data;
 
-  if (rawData instanceof Blob) {
-    rawData = await rawData.text(); // Converte Blob em texto
-  }
+      if (rawData instanceof Blob) {
+        rawData = await rawData.text(); // Converte Blob em texto
+      }
 
-  try {
-    const data = JSON.parse(rawData);
-    if (data.type === "position" && avatars.has(data.id) && data.id !== 1) {
-      const a = avatars.get(data.id);
-      a.targetX = data.x;
-      a.targetY = data.y;
-      requestAnimationFrame(animate);
-    }
-  } catch (e) {
-    console.error("Erro ao processar mensagem:", rawData, e);
-  }
-});
+      try {
+        const data = JSON.parse(rawData);
+        if (data.type === "position" && data.id !== 1) {
+          if (!avatars.has(data.id)) {
+            createAvatar(data.id, "#28a745"); // Verde para outros jogadores
+          }
 
+          const a = avatars.get(data.id);
+          a.targetX = data.x / 5.7;
+          a.targetY = data.y / 1.1;
+          requestAnimationFrame(animate);
+        }
+      } catch (e) {
+        console.error("Erro ao processar mensagem:", rawData, e);
+      }
+    });
 
+    // Envia desconexão ao sair
     window.addEventListener("beforeunload", () => {
-  if (socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type: "disconnect", id: 1 })); // ID do jogador
-  }
-});
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "disconnect", id: 1 }));
+      }
+    });
   </script>
 </body>
 </html>
