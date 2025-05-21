@@ -108,7 +108,6 @@
 
   <script>
     const socket = new WebSocket("wss://websocket-server-bta6.onrender.com");
-
     let jogadores = [];
 
     const perguntas = [
@@ -125,20 +124,31 @@
     ];
 
     let perguntaAtual = 0;
-    let mostrarResultado = false;
 
-    socket.onmessage = function (event) {
-      const data = JSON.parse(event.data);
-      if (data.type === "position") {
-        const index = jogadores.findIndex(j => j.id === data.id);
-        if (index >= 0) {
-          jogadores[index].x = data.x;
-          jogadores[index].y = data.y;
-        } else {
-          jogadores.push({ id: data.id, x: data.x, y: data.y, cor: "#007bff" });
+    socket.onmessage = async function (event) {
+      let rawData = event.data;
+
+      if (rawData instanceof Blob) {
+        rawData = await rawData.text();
+      }
+
+      try {
+        const data = JSON.parse(rawData);
+
+        if (data.type === "position") {
+          const index = jogadores.findIndex(j => j.id === data.id);
+          if (index >= 0) {
+            jogadores[index].x = data.x;
+            jogadores[index].y = data.y;
+          } else {
+            jogadores.push({ id: data.id, x: data.x, y: data.y, cor: "#007bff" });
+          }
+        } else if (data.type === "disconnect") {
+          jogadores = jogadores.filter(j => j.id !== data.id);
         }
-      } else if (data.type === "disconnect") {
-        jogadores = jogadores.filter(j => j.id !== data.id);
+
+      } catch (e) {
+        console.error("Erro ao processar mensagem WebSocket:", e);
       }
     };
 
@@ -178,10 +188,7 @@
       const pctNao = total ? (nao / total) * 100 : 0;
 
       const correta = perguntas[perguntaAtual].correta;
-      let acertou = false;
-
-      if (correta === "SIM" && pctSim >= 51) acertou = true;
-      if (correta === "NÃO" && pctNao >= 51) acertou = true;
+      const acertou = (correta === "SIM" && pctSim >= 51) || (correta === "NÃO" && pctNao >= 51);
 
       const resultado = acertou ? "✅ Acertaram!" : "❌ Erraram!";
       document.getElementById("resultado").textContent = `✔️ SIM: ${pctSim.toFixed(1)}% | ❌ NÃO: ${pctNao.toFixed(1)}% → ${resultado}`;
@@ -200,7 +207,7 @@
     document.getElementById("nextBtn").addEventListener("click", () => {
       verificarResposta();
       perguntaAtual++;
-      setTimeout(mostrarPergunta, 7000); // Mostra próxima pergunta depois de 1,5s
+      setTimeout(mostrarPergunta, 7000);
     });
 
     mostrarPergunta();

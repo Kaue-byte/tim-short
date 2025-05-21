@@ -123,15 +123,26 @@
     });
 
     // Recebe atualização de posição de outros jogadores (opcional)
-    socket.addEventListener("message", (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "position" && avatars.has(data.id) && data.id !== 1) {
-        const a = avatars.get(data.id);
-        a.targetX = data.x;
-        a.targetY = data.y;
-        requestAnimationFrame(animate);
-      }
-    });
+socket.addEventListener("message", async (event) => {
+  let rawData = event.data;
+
+  if (rawData instanceof Blob) {
+    rawData = await rawData.text(); // Converte Blob em texto
+  }
+
+  try {
+    const data = JSON.parse(rawData);
+    if (data.type === "position" && avatars.has(data.id) && data.id !== 1) {
+      const a = avatars.get(data.id);
+      a.targetX = data.x;
+      a.targetY = data.y;
+      requestAnimationFrame(animate);
+    }
+  } catch (e) {
+    console.error("Erro ao processar mensagem:", rawData, e);
+  }
+});
+
 
     window.addEventListener("beforeunload", () => {
   if (socket.readyState === WebSocket.OPEN) {
