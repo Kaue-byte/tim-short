@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin - Tim Soth</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Poppins', sans-serif;
+      background-color: #f8f9fa;
+    }
+
+    #gameArea {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .zone {
+      position: absolute;
+      width: 200px;
+      height: 200px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: 600;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    #zoneYes {
+      top: 50px;
+      left: 50px;
+      background-color: #d4edda;
+      color: #155724;
+      border: 3px dashed #28a745;
+    }
+
+    #zoneNo {
+      top: 50px;
+      right: 50px;
+      background-color: #f8d7da;
+      color: #721c24;
+      border: 3px dashed #dc3545;
+    }
+
+    .avatar {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      transition: top 0.1s, left 0.1s;
+    }
+
+    #questionBox {
+      position: absolute;
+      top: 45%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+
+    #question {
+      font-size: 1.6rem;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+
+    #nextBtn {
+      padding: 10px 20px;
+      font-size: 1rem;
+      font-weight: bold;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    #resultado {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameArea">
+    <div id="zoneYes" class="zone">SIM</div>
+    <div id="zoneNo" class="zone">NÃO</div>
+    <div id="adminAvatars"></div>
+
+    <div id="questionBox">
+      <div id="question">Carregando pergunta...</div>
+      <button id="nextBtn">Próxima Pergunta</button>
+    </div>
+
+    <div id="resultado"></div>
+  </div>
+
+  <script>
+    const socket = new WebSocket("ws://localhost:8080");
+    let jogadores = [];
+
+    const perguntas = [
+      { pergunta: "O método Tim Soth é uma técnica de memorização?", correta: "SIM" },
+      { pergunta: "Tim Soth envolve técnicas de leitura dinâmica?", correta: "NÃO" },
+      { pergunta: "O método ajuda na organização de ideias?", correta: "SIM" },
+      { pergunta: "É necessário decorar fórmulas no método Tim Soth?", correta: "NÃO" },
+      { pergunta: "Tim Soth pode ser usado para revisão de conteúdo?", correta: "SIM" },
+      { pergunta: "O método se baseia apenas em repetição?", correta: "NÃO" },
+      { pergunta: "O método Tim Soth é útil para provas discursivas?", correta: "SIM" },
+      { pergunta: "Tim Soth é um aplicativo?", correta: "NÃO" },
+      { pergunta: "Visualização é uma técnica usada no método Tim Soth?", correta: "SIM" },
+      { pergunta: "Tim Soth exige muito tempo diário para funcionar?", correta: "NÃO" }
+    ];
+
+    let perguntaAtual = 0;
+    let mostrarResultado = false;
+
+    socket.onmessage = function (event) {
+      const data = JSON.parse(event.data);
+      if (data.type === "position") {
+        const index = jogadores.findIndex(j => j.id === data.id);
+        if (index >= 0) {
+          jogadores[index].x = data.x;
+          jogadores[index].y = data.y;
+        } else {
+          jogadores.push({ id: data.id, x: data.x, y: data.y, cor: "#007bff" });
+        }
+      } else if (data.type === "disconnect") {
+        jogadores = jogadores.filter(j => j.id !== data.id);
+      }
+    };
+
+    function renderAvatares() {
+      const container = document.getElementById("adminAvatars");
+      container.innerHTML = "";
+      jogadores.forEach(j => {
+        const el = document.createElement("div");
+        el.className = "avatar";
+        el.style.left = j.x + "px";
+        el.style.top = j.y + "px";
+        el.style.backgroundColor = j.cor;
+        container.appendChild(el);
+      });
+    }
+
+    function verificarResposta() {
+      const zonaSim = document.getElementById("zoneYes").getBoundingClientRect();
+      const zonaNao = document.getElementById("zoneNo").getBoundingClientRect();
+
+      let sim = 0;
+      let nao = 0;
+
+      jogadores.forEach(j => {
+        const x = j.x;
+        const y = j.y;
+
+        if (x >= zonaSim.left && x <= zonaSim.right && y >= zonaSim.top && y <= zonaSim.bottom) {
+          sim++;
+        } else if (x >= zonaNao.left && x <= zonaNao.right && y >= zonaNao.top && y <= zonaNao.bottom) {
+          nao++;
+        }
+      });
+
+      const total = sim + nao;
+      const pctSim = total ? (sim / total) * 100 : 0;
+      const pctNao = total ? (nao / total) * 100 : 0;
+
+      const correta = perguntas[perguntaAtual].correta;
+      let acertou = false;
+
+      if (correta === "SIM" && pctSim >= 51) acertou = true;
+      if (correta === "NÃO" && pctNao >= 51) acertou = true;
+
+      const resultado = acertou ? "✅ Acertaram!" : "❌ Erraram!";
+      document.getElementById("resultado").textContent = `✔️ SIM: ${pctSim.toFixed(1)}% | ❌ NÃO: ${pctNao.toFixed(1)}% → ${resultado}`;
+    }
+
+    function mostrarPergunta() {
+      document.getElementById("resultado").textContent = "";
+      if (perguntaAtual < perguntas.length) {
+        document.getElementById("question").textContent = perguntas[perguntaAtual].pergunta;
+      } else {
+        document.getElementById("question").textContent = "Fim das perguntas!";
+        document.getElementById("nextBtn").disabled = true;
+      }
+    }
+
+    document.getElementById("nextBtn").addEventListener("click", () => {
+      verificarResposta();
+      perguntaAtual++;
+      setTimeout(mostrarPergunta, 7000); // Mostra próxima pergunta depois de 1,5s
+    });
+
+    mostrarPergunta();
+    setInterval(renderAvatares, 100);
+  </script>
+</body>
+</html>

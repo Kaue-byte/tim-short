@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Player - Controle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Poppins', sans-serif;
+      background-color: #f8f9fa;
+    }
+
+    #gameArea {
+      width: 100vw;
+      height: 100vh;
+      background-color: #f0f0f0;
+      position: relative;
+      cursor: crosshair;
+    }
+
+    .avatar {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: #007bff;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      transition: background-color 0.2s ease;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameArea"></div>
+
+  <script>
+    const gameArea = document.getElementById("gameArea");
+    const socket = new WebSocket("ws://localhost:8080");
+
+    const avatars = new Map(); // id -> { element, x, y, targetX, targetY }
+
+    // Cria um novo avatar
+    function createAvatar(id, color = "#007bff") {
+      const el = document.createElement("div");
+      el.className = "avatar";
+      el.style.backgroundColor = color;
+
+      gameArea.appendChild(el);
+
+      avatars.set(id, {
+        element: el,
+        x: 100,
+        y: 100,
+        targetX: 100,
+        targetY: 100,
+      });
+
+      updateAvatarPosition(id);
+    }
+
+    // Atualiza visualmente a posição do avatar
+    function updateAvatarPosition(id) {
+      const a = avatars.get(id);
+      if (!a) return;
+
+      a.element.style.left = `${a.x}px`;
+      a.element.style.top = `${a.y}px`;
+    }
+
+    // Anima todos os avatares
+    function animate() {
+      let needsNextFrame = false;
+
+      avatars.forEach((a, id) => {
+        const dx = a.targetX - a.x;
+        const dy = a.targetY - a.y;
+        const dist = Math.hypot(dx, dy);
+        const speed = 5;
+
+        if (dist > 1) {
+          a.x += (dx / dist) * speed;
+          a.y += (dy / dist) * speed;
+          updateAvatarPosition(id);
+          sendPosition(id, a.x, a.y);
+          needsNextFrame = true;
+        }
+      });
+
+      if (needsNextFrame) {
+        requestAnimationFrame(animate);
+      }
+    }
+
+    // Envia posição via WebSocket
+    function sendPosition(id, x, y) {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "position", id, x, y }));
+      }
+    }
+
+    // Clique define nova posição do avatar com ID 1
+    gameArea.addEventListener("click", (e) => {
+      const rect = gameArea.getBoundingClientRect();
+      const x = e.clientX - rect.left - 20;
+      const y = e.clientY - rect.top - 20;
+
+      const myAvatar = avatars.get(1);
+      if (myAvatar) {
+        myAvatar.targetX = x;
+        myAvatar.targetY = y;
+        requestAnimationFrame(animate);
+      }
+    });
+
+    // Conectando e criando múltiplos avatares
+    socket.addEventListener("open", () => {
+
+        createAvatar(1);
+      
+    });
+
+    // Recebe atualização de posição de outros jogadores (opcional)
+    socket.addEventListener("message", (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "position" && avatars.has(data.id) && data.id !== 1) {
+        const a = avatars.get(data.id);
+        a.targetX = data.x;
+        a.targetY = data.y;
+        requestAnimationFrame(animate);
+      }
+    });
+
+    window.addEventListener("beforeunload", () => {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: "disconnect", id: 1 })); // ID do jogador
+  }
+});
+  </script>
+</body>
+</html>
