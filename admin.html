@@ -107,7 +107,11 @@
   </div>
 
   <script>
-    const socket = new WebSocket("ws://localhost:8080");
+    const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+const host = window.location.hostname;
+const port = window.location.port ? `:${window.location.port}` : '';
+const socket = new WebSocket(`${protocol}${host}${port}`);
+
     let jogadores = [];
 
     const perguntas = [
