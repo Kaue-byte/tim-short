@@ -76,8 +76,8 @@
       let needsNextFrame = false;
 
       avatars.forEach((a, id) => {
-        const dx = a.targetY - a.x;
-        const dy = a.targetX - a.y;
+        const dx = a.targetX - a.x;
+        const dy = a.targetY - a.y;
         const dist = Math.hypot(dx, dy);
         const speed = 5;
 
@@ -85,7 +85,7 @@
           a.x += (dx / dist) * speed;
           a.y += (dy / dist) * speed;
           updateAvatarPosition(id);
-          sendPosition(id, a.x, a.y);
+          sendPosition(id, a.y, a.x);
           needsNextFrame = true;
         }
       });
