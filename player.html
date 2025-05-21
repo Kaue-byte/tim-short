@@ -105,8 +105,8 @@
     // Clique define nova posição do avatar com ID 1
     gameArea.addEventListener("click", (e) => {
       const rect = gameArea.getBoundingClientRect();
-      const x = e.clientX - rect.left - 20;
-      const y = e.clientY - rect.top - 20;
+    const x = (e.clientX - rect.left - 20) * 5.7;
+    const y = (e.clientY - rect.top - 20) * 1.1;
 
       const myAvatar = avatars.get(1);
       if (myAvatar) {
@@ -135,8 +135,8 @@ socket.addEventListener("message", async (event) => {
     const data = JSON.parse(rawData);
     if (data.type === "position" && avatars.has(data.id) && data.id !== 1) {
       const a = avatars.get(data.id);
-      a.targetX = data.x * 5.7;
-      a.targetY = data.y * 1.1;
+      a.targetX = data.x;
+      a.targetY = data.y;
       requestAnimationFrame(animate);
     }
   } catch (e) {
