@@ -1,39 +1,32 @@
 const WebSocket = require('ws');
+const http = require('http');
 
-const PORT = 8080;
-const wss = new WebSocket.Server({ port: PORT });
-let clients = new Map();
+const PORT = process.env.PORT || 8080; // use porta do Render ou 8080 localmente
 
-console.log(`🟢 Servidor WebSocket iniciado em ws://localhost:${PORT}`);
+// Criar servidor HTTP
+const server = http.createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Servidor WebSocket está rodando');
+});
 
-wss.on('connection', function connection(ws) {
-  const id = Date.now(); // ID simples
-  clients.set(ws, id);
-  console.log(`✅ Cliente conectado. ID: ${id}`);
+// Criar servidor WebSocket usando o HTTP
+const wss = new WebSocket.Server({ server });
 
-  ws.on('message', function incoming(message) {
-    console.log(`📨 Mensagem recebida de ${id}:`, message.toString());
+// Evento de conexão
+wss.on('connection', (ws) => {
+  console.log('🔌 Novo cliente conectado');
 
-    let data;
-    try {
-      data = JSON.parse(message);
-    } catch (err) {
-      console.error("❌ Erro ao fazer parse do JSON:", err);
-      return;
-    }
-
-    data.id = id;
-
-    // Enviar para todos os outros clientes
-    for (let [client, clientId] of clients.entries()) {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(data));
-      }
-    }
+  ws.on('message', (message) => {
+    console.log(`📨 Mensagem recebida: ${message}`);
+    ws.send(`Você disse: ${message}`);
   });
 
   ws.on('close', () => {
-    clients.delete(ws);
-    console.log(`🔌 Cliente desconectado. ID: ${id}`);
+    console.log('❌ Cliente desconectado');
   });
+});
+
+// Iniciar o servidor
+server.listen(PORT, () => {
+  console.log(`🟢 Servidor WebSocket iniciado na porta ${PORT}`);
 });
