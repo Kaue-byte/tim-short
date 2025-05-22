@@ -6,13 +6,13 @@
   <title>Player - Controle</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
   <style>
-  html, body {
- height: 100%;
-  width: 100%;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-}
+    html, body {
+      height: 100%;
+      width: 100%;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
 
     #gameArea {
       width: 100vw;
@@ -39,12 +39,16 @@
   <script>
     const gameArea = document.getElementById("gameArea");
     const socket = new WebSocket("wss://websocket-server-bta6.onrender.com");
-    
 
     const avatars = new Map(); // id -> { element, x, y, targetX, targetY }
 
+    // Gera um ID único para o jogador local
+    const playerId = Math.floor(Math.random() * 1000000);
+
     // Cria um novo avatar
     function createAvatar(id, color = "#007bff") {
+      if (avatars.has(id)) return;
+
       const el = document.createElement("div");
       el.className = "avatar";
       el.style.backgroundColor = color;
@@ -67,8 +71,8 @@
       const a = avatars.get(id);
       if (!a) return;
 
-      a.element.style.left = ${a.x}px;
-      a.element.style.top = ${a.y}px;
+      a.element.style.left = `${a.x}px`;
+      a.element.style.top = `${a.y}px`;
     }
 
     // Anima todos os avatares
@@ -102,13 +106,13 @@
       }
     }
 
-    // Clique define nova posição do avatar com ID 1
+    // Clique define nova posição do avatar local
     gameArea.addEventListener("click", (e) => {
       const rect = gameArea.getBoundingClientRect();
-  const x = (e.clientX - rect.left - 20) * 5.7;
-    const y = (e.clientY - rect.top - 20) * 1.1;
+      const x = (e.clientX - rect.left - 20) * 5.7;
+      const y = (e.clientY - rect.top - 20) * 1.1;
 
-      const myAvatar = avatars.get(1);
+      const myAvatar = avatars.get(playerId);
       if (myAvatar) {
         myAvatar.targetX = x;
         myAvatar.targetY = y;
@@ -116,40 +120,43 @@
       }
     });
 
-    // Conectando e criando múltiplos avatares
+    // Quando conectar, cria o próprio avatar
     socket.addEventListener("open", () => {
-
-        createAvatar(1);
-      
+      createAvatar(playerId);
     });
 
-    // Recebe atualização de posição de outros jogadores (opcional)
-socket.addEventListener("message", async (event) => {
-  let rawData = event.data;
+    // Recebe posições dos outros jogadores
+    socket.addEventListener("message", async (event) => {
+      let rawData = event.data;
 
-  if (rawData instanceof Blob) {
-    rawData = await rawData.text(); // Converte Blob em texto
-  }
+      if (rawData instanceof Blob) {
+        rawData = await rawData.text(); // Converte Blob em texto
+      }
 
-  try {
-    const data = JSON.parse(rawData);
-    if (data.type === "position" && avatars.has(data.id) && data.id !== 1) {
-      const a = avatars.get(data.id);
-      a.targetX = data.x;
-      a.targetY = data.y;
-      requestAnimationFrame(animate);
-    }
-  } catch (e) {
-    console.error("Erro ao processar mensagem:", rawData, e);
-  }
-});
+      try {
+        const data = JSON.parse(rawData);
 
+        if (data.type === "position" && data.id !== playerId) {
+          if (!avatars.has(data.id)) {
+            createAvatar(data.id, "#ff5722"); // cor diferente para outros
+          }
 
+          const a = avatars.get(data.id);
+          a.targetX = data.x;
+          a.targetY = data.y;
+          requestAnimationFrame(animate);
+        }
+      } catch (e) {
+        console.error("Erro ao processar mensagem:", rawData, e);
+      }
+    });
+
+    // Ao sair, envia desconexão (opcional, depende do servidor lidar com isso)
     window.addEventListener("beforeunload", () => {
-  if (socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify({ type: "disconnect", id: 1 })); // ID do jogador
-  }
-});
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "disconnect", id: playerId }));
+      }
+    });
   </script>
 </body>
 </html>
